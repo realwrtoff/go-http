@@ -20,5 +20,4 @@ func TestService_Distinct(t *testing.T) {
 	} else {
 		t.Logf("setnx again return %v", value)
 	}
-
 }

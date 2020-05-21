@@ -12,6 +12,7 @@ import (
 	"github.com/hpifu/go-kit/hrule"
 	"github.com/hpifu/go-kit/logger"
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
+	"github.com/realwrtoff/go-http/internal/monitor"
 	"github.com/realwrtoff/go-http/internal/service"
 	"net/http"
 	"os"
@@ -74,12 +75,18 @@ func main() {
 		panic(err)
 	}
 
-	rds := redis.NewClient(&redis.Options{Addr: options.Redis.Addr, Password: options.Redis.Password})
+	rds := redis.NewClient(&redis.Options{
+		Addr: options.Redis.Addr,
+		Password: options.Redis.Password,
+		MaxRetries: 1,
+		MinIdleConns: 1,
+	})
 	if _, err := rds.Ping().Result(); err != nil {
 		panic(err)
 	}
 	runLog.Infof("ping redis %v ok\n", options.Redis.Addr)
-
+	watcher := monitor.NewWatcher(rds)
+	go watcher.Run()
 	// init services
 	svc := service.NewService(rds, runLog)
 

@@ -28,11 +28,6 @@ type MobileInfo struct {
 	AreaCode string `form:"area_code" json:"area_code"`
 }
 
-type MobileRes struct {
-	Message string `form:"message" json:"message"`
-	Data *MobileInfo `form:"data" json:"data"`
-}
-
 func (s *Service) Echo(c *gin.Context) {
 	req := &EchoReq{}
 
@@ -49,18 +44,21 @@ func (s *Service) Echo(c *gin.Context) {
 
 func (s *Service) Location(c *gin.Context) {
 	req := &MobileReq{}
-	res := &MobileRes{
+	res := &BasicRes{
+		Code: 200,
 		Message: "",
 		Data: nil,
 	}
 
 	if err := c.Bind(req); err != nil {
+		res.Code = http.StatusBadRequest
 		res.Message = err.Error()
 		c.JSON(http.StatusBadRequest, res)
 		return
 	}
 
 	if len(req.Mobile) < 7 {
+		res.Code = http.StatusBadRequest
 		res.Message = fmt.Sprintf("invalid mobile prefix [%s], at least length 7.", req.Mobile)
 		c.JSON(http.StatusBadRequest, res)
 		return
@@ -69,6 +67,7 @@ func (s *Service) Location(c *gin.Context) {
 	key := fmt.Sprintf("%s", req.Mobile[:7])
 	value, err := s.rds.Get(key).Result()
 	if err != nil {
+		res.Code = http.StatusInternalServerError
 		res.Message = err.Error()
 		c.JSON(http.StatusInternalServerError, res)
 		return
