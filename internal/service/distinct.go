@@ -3,7 +3,6 @@ package service
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis"
 	"net/http"
 	"time"
 )
@@ -29,18 +28,18 @@ func (s *Service) Distinct(c *gin.Context) {
 	}
 
 	key := fmt.Sprintf("%s:%s", req.Business, req.Key)
-	curTime := time.Now().Format("20060102150405")
-	value, err := s.rds.GetSet(key, curTime).Result()
-	if err == redis.Nil {
-		res.Message = fmt.Sprintf("set %s first success", key)
-	} else if err != nil {
+	curTime := time.Now().Format("2006-01-02")
+	ok, err := s.rds.SetNX(key, curTime, time.Hour*24*365).Result()
+	if err != nil {
 		res.Code = http.StatusInternalServerError
 		res.Message = err.Error()
 		c.JSON(http.StatusInternalServerError, res)
 		return
+	} else if ok {
+		res.Message = fmt.Sprintf("setnx %s success", key)
+		res.Data = curTime
 	} else {
-		res.Message = fmt.Sprintf("get %s old value %s", key, value)
-		res.Data = value
+		res.Message = fmt.Sprintf("setnx %s failed", key)
 	}
 	c.JSON(http.StatusOK, res)
 }
