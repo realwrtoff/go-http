@@ -45,9 +45,9 @@ func (s *Service) Echo(c *gin.Context) {
 func (s *Service) Location(c *gin.Context) {
 	req := &MobileReq{}
 	res := &BasicRes{
-		Code: 200,
+		Code:    200,
 		Message: "",
-		Data: nil,
+		Data:    nil,
 	}
 
 	if err := c.Bind(req); err != nil {
@@ -79,12 +79,6 @@ func (s *Service) Location(c *gin.Context) {
 	data.PostCode = items[2]
 	data.AreaCode = items[3]
 	data.Operator = items[4]
-
-	// value, err := s.rds.Get(key).Bytes()
-	//if err := json.Unmarshal(value, data); err != nil {
-	//	res.Message = err.Error()
-	//	c.JSON(http.StatusInternalServerError, res)
-	//}
 
 	res.Data = data
 	c.JSON(http.StatusOK, res)

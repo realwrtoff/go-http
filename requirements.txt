@@ -1,0 +1,10 @@
+requests
+flask
+redis
+pymongo
+behave
+pyhamcrest
+pymysql
+cryptography
+grpcio
+grpcio-tools

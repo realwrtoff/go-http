@@ -9,15 +9,15 @@ import (
 
 type DistinctReq struct {
 	Business string `form:"business"`
-	Key string `form:"key"`
+	Key      string `form:"key"`
 }
 
 func (s *Service) Distinct(c *gin.Context) {
 	req := &DistinctReq{}
 	res := &BasicRes{
-		Code: http.StatusOK,
+		Code:    http.StatusOK,
 		Message: "",
-		Data: nil,
+		Data:    nil,
 	}
 
 	if err := c.Bind(req); err != nil {

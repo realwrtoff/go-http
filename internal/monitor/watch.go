@@ -9,10 +9,9 @@ type Watcher struct {
 	rds *redis.Client
 }
 
-
 func NewWatcher(rds *redis.Client) *Watcher {
 	return &Watcher{
-		rds:rds,
+		rds: rds,
 	}
 }
 
@@ -22,6 +21,7 @@ func (w *Watcher) Run() {
 		for {
 			select {
 			case <-ticker:
+				// redis was always disconneted although related options were set.
 				w.rds.Ping()
 			}
 		}

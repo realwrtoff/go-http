@@ -9,10 +9,13 @@ import (
 	"github.com/hpifu/go-kit/hconf"
 	"github.com/hpifu/go-kit/henv"
 	"github.com/hpifu/go-kit/hflag"
+	"github.com/hpifu/go-kit/hhttp"
 	"github.com/hpifu/go-kit/hrule"
 	"github.com/hpifu/go-kit/logger"
+	_ "github.com/jinzhu/gorm/dialects/mysql"
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"github.com/realwrtoff/go-http/internal/monitor"
+	"github.com/realwrtoff/go-http/internal/router"
 	"github.com/realwrtoff/go-http/internal/service"
 	"net/http"
 	"os"
@@ -76,19 +79,23 @@ func main() {
 	}
 
 	rds := redis.NewClient(&redis.Options{
-		Addr: options.Redis.Addr,
-		Password: options.Redis.Password,
-		MaxRetries: 1,
+		Addr:         options.Redis.Addr,
+		Password:     options.Redis.Password,
+		MaxRetries:   1,
 		MinIdleConns: 1,
 	})
 	if _, err := rds.Ping().Result(); err != nil {
 		panic(err)
 	}
 	runLog.Infof("ping redis %v ok\n", options.Redis.Addr)
+
 	watcher := monitor.NewWatcher(rds)
 	go watcher.Run()
+
+	// http 连接池
+	httpClient := hhttp.NewHttpClient(20, time.Second, time.Second)
 	// init services
-	svc := service.NewService(rds, runLog)
+	svc := service.NewService(rds, httpClient, runLog)
 
 	// init gin
 	gin.SetMode(gin.ReleaseMode)
@@ -108,6 +115,7 @@ func main() {
 	r.GET("/echo", svc.Echo)
 	r.GET("/location", svc.Location)
 	r.GET("/distinct", svc.Distinct)
+	router.InitGeoRouter(r, svc)
 
 	// run server
 	server := &http.Server{
@@ -125,6 +133,8 @@ func main() {
 	signal.Notify(quit, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	runLog.Infof("%v shutdown ...", os.Args[0])
+
+	_ = rds.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
