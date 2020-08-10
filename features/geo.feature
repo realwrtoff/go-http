@@ -55,3 +55,39 @@ Feature: geo 测试
                 }
             }
             """
+
+  Scenario: geo adcode
+    When http 请求 GET /geo/adcode
+            """
+            {
+                "params": {
+                    "latitude": 22.53091,
+                    "longitude": 113.952385
+                }
+            }
+            """
+    Then http 检查 200
+            """
+            {
+                "json": {
+                    "code": 0,
+                    "message": "query ok",
+                    "data": {
+                        "address":"广东省深圳市南山区高新南环路",
+                        "location": {
+                            "lat":22.53091,
+                            "lng":113.952385
+                        },
+                        "ad_info": {
+                            "nation_code":"156",
+                            "adcode": "440305",
+                            "city_code":"156440300",
+                            "nation":"中国",
+                            "province": "广东省",
+                            "city": "深圳市",
+                            "district": "南山区"
+                        }
+                    }
+                }
+            }
+            """

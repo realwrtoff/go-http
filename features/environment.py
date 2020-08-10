@@ -63,7 +63,7 @@ def start():
 
 def stop():
     subprocess.getstatusoutput(
-        "ps aux | grep bin/query | grep -v grep | awk '{print $2}' | xargs kill"
+        "ps aux | grep bin/server | grep -v grep | awk '{print $2}' | xargs kill"
     )
 
 

@@ -10,5 +10,6 @@ func InitGeoRouter(Router *gin.Engine, svc *service.Service) {
 	{
 		GeoRouter.GET("address", svc.Address)
 		GeoRouter.GET("distance", svc.Distance)
+		GeoRouter.GET("adcode", svc.Adcode)
 	}
 }
