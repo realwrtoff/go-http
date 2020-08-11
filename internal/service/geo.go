@@ -73,7 +73,7 @@ type AdCodeAdInfo struct {
 type AdCodeInfo struct {
 	Location Point `json:"location"`
 	Address string `json:"address"`
-	AddressComponents AddressComponent `json:"address_components"`
+	AddressComponents AddressComponent `json:"address_component"`
 	AdInfo AdCodeAdInfo `json:"ad_info"`
 }
 
