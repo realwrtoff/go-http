@@ -96,7 +96,9 @@ func main() {
 	httpClient := hhttp.NewHttpClient(20, time.Second, time.Second)
 	// init services
 	svc := service.NewService(rds, httpClient, runLog)
-
+	if err := svc.Init(); err != nil {
+		panic(err)
+	}
 	// init gin
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -116,6 +118,7 @@ func main() {
 	r.GET("/location", svc.Location)
 	r.GET("/distinct", svc.Distinct)
 	router.InitGeoRouter(r, svc)
+	router.InitMobileRouter(r, svc)
 
 	// run server
 	server := &http.Server{

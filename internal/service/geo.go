@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"math"
 	"net/http"
+	"strings"
 )
 
 type GeoPointReq struct {
@@ -134,8 +135,17 @@ func (s *Service) Address(c *gin.Context) {
 	}
 	txReq := make(map[string]interface{})
 	txReq["key"] = key
-	txReq["region"] = req.City
-	txReq["address"] = req.Address
+	if req.City != "" {
+		txReq["region"] = req.City
+		if strings.HasPrefix(req.Address, req.City) {
+			txReq["address"] = req.Address
+		} else {
+			// address不包含城市给它加上
+			txReq["address"] = fmt.Sprintf("%s%s", req.City, req.Address)
+		}
+	} else {
+		txReq["address"] = req.Address
+	}
 	uri := "https://apis.map.qq.com/ws/geocoder/v1"
 	httpRes := s.httpClient.GET(uri, nil, txReq, nil)
 	if httpRes.Err != nil {
