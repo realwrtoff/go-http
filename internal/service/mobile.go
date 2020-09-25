@@ -73,7 +73,7 @@ func (s *Service) QueryMobile(c *gin.Context) {
 	req := &MobileQueryReq{}
 	res := &BasicRes{
 		Code:    http.StatusOK,
-		Message: "",
+		Message: "success",
 		Data:    nil,
 	}
 
@@ -100,7 +100,7 @@ func (s *Service) QueryMobileMulti(c *gin.Context) {
 	req := &MobileQueryMultiReq{}
 	res := &BasicRes{
 		Code:    http.StatusOK,
-		Message: "",
+		Message: "success",
 		Data:    nil,
 	}
 
@@ -114,8 +114,12 @@ func (s *Service) QueryMobileMulti(c *gin.Context) {
 	for _, mobileMd5 := range req.MobileMd5 {
 		key := fmt.Sprintf("%d", s.crc32.Hash32S(mobileMd5) / 10000000)
 		field := fmt.Sprintf("%d", s.murmur32.Hash32S(mobileMd5) / 1024)
-		mobile := s.rds.HGet(key, field).String()
-		data[mobileMd5] = mobile
+		mobile, err := s.rds.HGet(key, field).Result()
+		if err != nil {
+			s.runLog.Errorf("md5 %s hget %s %s error[%s]", mobileMd5, key, field, err.Error())
+		} else {
+			data[mobileMd5] = mobile
+		}
 	}
 	res.Data = data
 	c.JSON(http.StatusOK, res)
