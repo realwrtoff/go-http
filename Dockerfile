@@ -1,4 +1,4 @@
-FROM centos:centos7
+FROM centos:centos7 as builder
 
 RUN yum install -y make \
     && yum install -y git gcc \
@@ -16,7 +16,9 @@ ENV GOROOT=/usr/local/go
 RUN git clone https://github.com/realwrtoff/go-http.git \
     && cd go-http && git pull && make output
 
+FROM centos:centos7
+COPY --from=builder /go-http/output/ /
 EXPOSE 7060
 
-WORKDIR /go-http/output/go-http
+WORKDIR /go-http
 CMD [ "bin/server", "-c", "configs/server.json" ]
