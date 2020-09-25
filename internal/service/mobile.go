@@ -65,7 +65,7 @@ func (s *Service) SetMobileMd5(c *gin.Context) {
 		okNum += 1
 	}
 	duration := TimeCost(start)
-	res.Message = fmt.Sprintf("hsetnx mobile[%s] success %d, time spend %d ", req.MobilePrefix, okNum, duration)
+	res.Message = fmt.Sprintf("hsetnx mobile[%s] success %d, time spend %d milliseconds ", req.MobilePrefix, okNum, duration/1000000)
 	c.JSON(http.StatusOK, res)
 }
 
@@ -86,9 +86,13 @@ func (s *Service) QueryMobile(c *gin.Context) {
 
 	key := fmt.Sprintf("%d", s.crc32.Hash32S(req.MobileMd5) / 10000000)
 	field := fmt.Sprintf("%d", s.murmur32.Hash32S(req.MobileMd5) / 1024)
-	mobile := s.rds.HGet(key, field).String()
-	res.Message = fmt.Sprintf("hget md5[%s] success mobile %s", req.MobileMd5, mobile)
-	res.Data = mobile
+	mobile, err := s.rds.HGet(key, field).Result()
+	if err != nil {
+		res.Code = http.StatusInternalServerError
+		res.Message = err.Error()
+	} else {
+		res.Data = mobile
+	}
 	c.JSON(http.StatusOK, res)
 }
 
