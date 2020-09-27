@@ -52,7 +52,7 @@ func (s *Service) SetMobileMd5(c *gin.Context) {
 		mobile := fmt.Sprintf("%s%04d", req.MobilePrefix, i)
 		mobileMd5 := Md5V(mobile)
 		key := fmt.Sprintf("%d", s.crc32.Hash32S(mobileMd5) % 10000000)
-		field := fmt.Sprintf("%d", s.murmur32.Hash32S(mobileMd5) % 1024)
+		field := fmt.Sprintf("%d", s.murmur32.Hash32S(mobileMd5))
 		ok, err := s.rds.HSetNX(key, field, mobile).Result()
 		if err != nil {
 			s.runLog.Errorf("hset %s %s %s error[%s]", key, field, mobile, err.Error())
@@ -66,6 +66,7 @@ func (s *Service) SetMobileMd5(c *gin.Context) {
 	}
 	duration := TimeCost(start)
 	res.Message = fmt.Sprintf("hsetnx mobile[%s] success %d, time spend %d milliseconds ", req.MobilePrefix, okNum, duration/1000000)
+	s.runLog.Info(res.Message)
 	c.JSON(http.StatusOK, res)
 }
 
@@ -85,7 +86,7 @@ func (s *Service) QueryMobile(c *gin.Context) {
 	}
 
 	key := fmt.Sprintf("%d", s.crc32.Hash32S(req.MobileMd5) % 10000000)
-	field := fmt.Sprintf("%d", s.murmur32.Hash32S(req.MobileMd5) % 1024)
+	field := fmt.Sprintf("%d", s.murmur32.Hash32S(req.MobileMd5))
 	mobile, err := s.rds.HGet(key, field).Result()
 	if err != nil {
 		res.Code = http.StatusInternalServerError
@@ -113,7 +114,7 @@ func (s *Service) QueryMobileMulti(c *gin.Context) {
 	data := make(map[string]string)
 	for _, mobileMd5 := range req.MobileMd5 {
 		key := fmt.Sprintf("%d", s.crc32.Hash32S(mobileMd5) % 10000000)
-		field := fmt.Sprintf("%d", s.murmur32.Hash32S(mobileMd5) % 1024)
+		field := fmt.Sprintf("%d", s.murmur32.Hash32S(mobileMd5))
 		mobile, err := s.rds.HGet(key, field).Result()
 		if err != nil {
 			s.runLog.Errorf("md5 %s hget %s %s error[%s]", mobileMd5, key, field, err.Error())
