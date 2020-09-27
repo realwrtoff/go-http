@@ -51,8 +51,8 @@ func (s *Service) SetMobileMd5(c *gin.Context) {
 	for i := 0; i < 10000; i++ {
 		mobile := fmt.Sprintf("%s%04d", req.MobilePrefix, i)
 		mobileMd5 := Md5V(mobile)
-		key := fmt.Sprintf("%d", s.crc32.Hash32S(mobileMd5) / 10000000)
-		field := fmt.Sprintf("%d", s.murmur32.Hash32S(mobileMd5) / 1024)
+		key := fmt.Sprintf("%d", s.crc32.Hash32S(mobileMd5) % 10000000)
+		field := fmt.Sprintf("%d", s.murmur32.Hash32S(mobileMd5) % 1024)
 		ok, err := s.rds.HSetNX(key, field, mobile).Result()
 		if err != nil {
 			s.runLog.Errorf("hset %s %s %s error[%s]", key, field, mobile, err.Error())
