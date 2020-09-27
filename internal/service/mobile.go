@@ -9,6 +9,15 @@ import (
 	"time"
 )
 
+func BKDRHash(str string) uint64 {
+	seed := uint64(131) // 31 131 1313 13131 131313 etc..
+	hash := uint64(0)
+	for i := 0; i < len(str); i++ {
+		hash = (hash * seed) + uint64(str[i])
+	}
+	return hash & 0x7FFFFFFF
+}
+
 type MobileSetReq struct {
 	MobilePrefix string `form:"mobile_prefix"`
 }
@@ -52,7 +61,7 @@ func (s *Service) SetMobileMd5(c *gin.Context) {
 		mobile := fmt.Sprintf("%s%04d", req.MobilePrefix, i)
 		mobileMd5 := Md5V(mobile)
 		key := fmt.Sprintf("%d", s.crc32.Hash32S(mobileMd5) % 10000000)
-		field := fmt.Sprintf("%d", s.murmur32.Hash32S(mobileMd5))
+		field := fmt.Sprintf("%d", BKDRHash(mobileMd5))
 		ok, err := s.rds.HSetNX(key, field, mobile).Result()
 		if err != nil {
 			s.runLog.Errorf("hset %s %s %s error[%s]", key, field, mobile, err.Error())
@@ -86,7 +95,7 @@ func (s *Service) QueryMobile(c *gin.Context) {
 	}
 
 	key := fmt.Sprintf("%d", s.crc32.Hash32S(req.MobileMd5) % 10000000)
-	field := fmt.Sprintf("%d", s.murmur32.Hash32S(req.MobileMd5))
+	field := fmt.Sprintf("%d", BKDRHash(req.MobileMd5))
 	mobile, err := s.rds.HGet(key, field).Result()
 	if err != nil {
 		res.Code = http.StatusInternalServerError
@@ -114,7 +123,7 @@ func (s *Service) QueryMobileMulti(c *gin.Context) {
 	data := make(map[string]string)
 	for _, mobileMd5 := range req.MobileMd5 {
 		key := fmt.Sprintf("%d", s.crc32.Hash32S(mobileMd5) % 10000000)
-		field := fmt.Sprintf("%d", s.murmur32.Hash32S(mobileMd5))
+		field := fmt.Sprintf("%d", BKDRHash(mobileMd5))
 		mobile, err := s.rds.HGet(key, field).Result()
 		if err != nil {
 			s.runLog.Errorf("md5 %s hget %s %s error[%s]", mobileMd5, key, field, err.Error())
