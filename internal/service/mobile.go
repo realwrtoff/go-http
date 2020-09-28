@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis"
 	"net/http"
 	"time"
 )
@@ -17,6 +18,8 @@ func BKDRHash(str string) uint64 {
 	}
 	return hash & 0x7FFFFFFF
 }
+
+const ConflictMd5 = "conflict_md5"
 
 type MobileSetReq struct {
 	MobilePrefix string `form:"mobile_prefix"`
@@ -69,6 +72,8 @@ func (s *Service) SetMobileMd5(c *gin.Context) {
 		}
 		if !ok {
 			s.runLog.Errorf("hset %s %s %s failed", key, field, mobile)
+			// 放入一个固定key的hash中
+			s.rds.HSet(ConflictMd5, mobileMd5, mobile)
 			continue
 		}
 		okNum += 1
@@ -94,15 +99,20 @@ func (s *Service) QueryMobile(c *gin.Context) {
 		return
 	}
 
-	key := fmt.Sprintf("%d", s.crc32.Hash32S(req.MobileMd5) % 10000000)
-	field := fmt.Sprintf("%d", BKDRHash(req.MobileMd5))
-	mobile, err := s.rds.HGet(key, field).Result()
+	var mobile string
+	mobile, err := s.rds.HGet(ConflictMd5, req.MobileMd5).Result()
+	if err == redis.Nil {
+		key := fmt.Sprintf("%d", s.crc32.Hash32S(req.MobileMd5) % 10000000)
+		field := fmt.Sprintf("%d", BKDRHash(req.MobileMd5))
+		mobile, err = s.rds.HGet(key, field).Result()
+	}
 	if err != nil {
 		res.Code = http.StatusInternalServerError
 		res.Message = err.Error()
 	} else {
 		res.Data = mobile
 	}
+
 	c.JSON(http.StatusOK, res)
 }
 
@@ -122,12 +132,14 @@ func (s *Service) QueryMobileMulti(c *gin.Context) {
 	}
 	data := make(map[string]string)
 	for _, mobileMd5 := range req.MobileMd5 {
-		key := fmt.Sprintf("%d", s.crc32.Hash32S(mobileMd5) % 10000000)
-		field := fmt.Sprintf("%d", BKDRHash(mobileMd5))
-		mobile, err := s.rds.HGet(key, field).Result()
-		if err != nil {
-			s.runLog.Errorf("md5 %s hget %s %s error[%s]", mobileMd5, key, field, err.Error())
-		} else {
+		var mobile string
+		mobile, err := s.rds.HGet(ConflictMd5, mobileMd5).Result()
+		if err == redis.Nil {
+			key := fmt.Sprintf("%d", s.crc32.Hash32S(mobileMd5) % 10000000)
+			field := fmt.Sprintf("%d", BKDRHash(mobileMd5))
+			mobile, err = s.rds.HGet(key, field).Result()
+		}
+		if err == nil {
 			data[mobileMd5] = mobile
 		}
 	}
