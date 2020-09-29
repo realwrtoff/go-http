@@ -10,8 +10,7 @@ import (
 type Service struct {
 	rds    *redis.Client
 	httpClient *hhttp.HttpClient
-	crc32 hashx.Hasher32
-	murmur32 hashx.Hasher32
+	crc hashx.Hasher64
 	runLog *logrus.Logger
 }
 
@@ -41,7 +40,6 @@ func NewService(
 }
 
 func (s *Service)Init() error{
-	s.crc32 = hashx.NewHasher32(hashx.CRC32IEEE)
-	s.murmur32 = hashx.NewHasher32(hashx.MURMUR32)
+	s.crc = hashx.NewHasher64(hashx.CRC64ISO)
 	return nil
 }

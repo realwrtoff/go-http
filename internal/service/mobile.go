@@ -1,25 +1,17 @@
 package service
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
+	"github.com/hpifu/go-kit/hashx"
 	"net/http"
 	"time"
 )
 
-func BKDRHash(str string) uint64 {
-	seed := uint64(131) // 31 131 1313 13131 131313 etc..
-	hash := uint64(0)
-	for i := 0; i < len(str); i++ {
-		hash = (hash * seed) + uint64(str[i])
-	}
-	return hash & 0x7FFFFFFF
-}
 
 const ConflictMd5 = "conflict_md5"
+const RedisKeyBudgets = 10000000
 
 type MobileSetReq struct {
 	MobilePrefix string `form:"mobile_prefix"`
@@ -31,12 +23,6 @@ type MobileQueryReq struct {
 
 type MobileQueryMultiReq struct {
 	MobileMd5 []string `form:"mobile_md5"`
-}
-
-func Md5V(str string) string  {
-	h := md5.New()
-	h.Write([]byte(str))
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 func TimeCost(start time.Time) time.Duration{
@@ -62,9 +48,9 @@ func (s *Service) SetMobileMd5(c *gin.Context) {
 	start := time.Now()
 	for i := 0; i < 10000; i++ {
 		mobile := fmt.Sprintf("%s%04d", req.MobilePrefix, i)
-		mobileMd5 := Md5V(mobile)
-		key := fmt.Sprintf("%d", s.crc32.Hash32S(mobileMd5) % 10000000)
-		field := fmt.Sprintf("%d", BKDRHash(mobileMd5))
+		mobileMd5 := hashx.Md5Hash(mobile)
+		key := fmt.Sprintf("%d", s.crc.Hash64S(mobileMd5) % RedisKeyBudgets)
+		field := fmt.Sprintf("%d", hashx.DJBHash(mobileMd5))
 		ok, err := s.rds.HSetNX(key, field, mobile).Result()
 		if err != nil {
 			s.runLog.Errorf("hset %s %s %s error[%s]", key, field, mobile, err.Error())
@@ -102,8 +88,8 @@ func (s *Service) QueryMobile(c *gin.Context) {
 	var mobile string
 	mobile, err := s.rds.HGet(ConflictMd5, req.MobileMd5).Result()
 	if err == redis.Nil {
-		key := fmt.Sprintf("%d", s.crc32.Hash32S(req.MobileMd5) % 10000000)
-		field := fmt.Sprintf("%d", BKDRHash(req.MobileMd5))
+		key := fmt.Sprintf("%d", s.crc.Hash64S(req.MobileMd5) % RedisKeyBudgets)
+		field := fmt.Sprintf("%d", hashx.DJBHash(req.MobileMd5))
 		mobile, err = s.rds.HGet(key, field).Result()
 	}
 	if err != nil {
@@ -135,8 +121,8 @@ func (s *Service) QueryMobileMulti(c *gin.Context) {
 		var mobile string
 		mobile, err := s.rds.HGet(ConflictMd5, mobileMd5).Result()
 		if err == redis.Nil {
-			key := fmt.Sprintf("%d", s.crc32.Hash32S(mobileMd5) % 10000000)
-			field := fmt.Sprintf("%d", BKDRHash(mobileMd5))
+			key := fmt.Sprintf("%d", s.crc.Hash64S(mobileMd5) % RedisKeyBudgets)
+			field := fmt.Sprintf("%d", hashx.DJBHash(mobileMd5))
 			mobile, err = s.rds.HGet(key, field).Result()
 		}
 		if err == nil {
