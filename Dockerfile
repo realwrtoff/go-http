@@ -1,18 +1,24 @@
-FROM golang:1.14-alpine AS build
+FROM centos:centos7 as builder
 
-COPY . /go/src/
-WORKDIR /go/src/
-RUN apk add make
-RUN apk add git
-RUN make build
+RUN yum install -y make \
+    && yum install -y git gcc \
+    && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" >> /etc/timezone
 
-FROM docker:20.10.1-dind
+# golang
+ENV GOPROXY=https://goproxy.io
+RUN curl -OL https://dl.google.com/go/go1.14.1.linux-amd64.tar.gz && \
+    tar -xzvf go1.14.1.linux-amd64.tar.gz && mv go /usr/local
+ENV PATH=$PATH:/usr/local/go/bin
+ENV GOROOT=/usr/local/go
 
-RUN apk update \
-    && apk add tzdata \
-    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-    && echo "Asia/Shanghai" > /etc/timezone
+# 添加代码和编译
+COPY . /
+RUN cd go-http && make build
 
-COPY --from=build /go/src/build /
+FROM centos:centos7
+COPY --from=builder /go-http/build/ /
+EXPOSE 7060
+
 WORKDIR /go-http
 CMD [ "bin/server", "-c", "configs/server.json" ]
