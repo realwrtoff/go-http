@@ -117,6 +117,7 @@ func main() {
 	r.GET("/echo", svc.Echo)
 	r.GET("/location", svc.Location)
 	r.GET("/distinct", svc.Distinct)
+	r.GET("/bitmap", svc.BitMap)
 	router.InitGeoRouter(r, svc)
 	router.InitMobileRouter(r, svc)
 

@@ -29,6 +29,12 @@ func TimeCost(start time.Time) time.Duration{
 	return time.Since(start)
 }
 
+func getMobileHash(crc hashx.Hasher64, mobileMd5 string) (string, string) {
+	key := fmt.Sprintf("%d", crc.Hash64S(mobileMd5) % RedisKeyBudgets)
+	field := fmt.Sprintf("%d", hashx.DJBHash(mobileMd5) + hashx.BKDRHash(mobileMd5))
+	return key, field
+}
+
 func (s *Service) SetMobileMd5(c *gin.Context) {
 	req := &MobileSetReq{}
 	res := &BasicRes{
@@ -49,18 +55,21 @@ func (s *Service) SetMobileMd5(c *gin.Context) {
 	for i := 0; i < 10000; i++ {
 		mobile := fmt.Sprintf("%s%04d", req.MobilePrefix, i)
 		mobileMd5 := hashx.Md5Hash(mobile)
-		key := fmt.Sprintf("%d", s.crc.Hash64S(mobileMd5) % RedisKeyBudgets)
-		field := fmt.Sprintf("%d", hashx.DJBHash(mobileMd5))
+		key, field := getMobileHash(s.crc, mobileMd5)
 		ok, err := s.rds.HSetNX(key, field, mobile).Result()
 		if err != nil {
 			s.runLog.Errorf("hset %s %s %s error[%s]", key, field, mobile, err.Error())
 			continue
 		}
 		if !ok {
-			s.runLog.Errorf("hset %s %s %s failed", key, field, mobile)
-			// 放入一个固定key的hash中
-			s.rds.HSet(ConflictMd5, mobileMd5, mobile)
-			continue
+			// 重复写入，忽略
+			existMobile, _ := s.rds.HGet(key, field).Result()
+			if existMobile != mobile {
+				s.runLog.Errorf("hset %s %s %s failed", key, field, mobile)
+				// 放入一个固定key的hash中
+				s.rds.HSet(ConflictMd5, mobileMd5, mobile)
+				continue
+			}
 		}
 		okNum += 1
 	}
@@ -88,8 +97,7 @@ func (s *Service) QueryMobile(c *gin.Context) {
 	var mobile string
 	mobile, err := s.rds.HGet(ConflictMd5, req.MobileMd5).Result()
 	if err == redis.Nil {
-		key := fmt.Sprintf("%d", s.crc.Hash64S(req.MobileMd5) % RedisKeyBudgets)
-		field := fmt.Sprintf("%d", hashx.DJBHash(req.MobileMd5))
+		key, field := getMobileHash(s.crc, req.MobileMd5)
 		mobile, err = s.rds.HGet(key, field).Result()
 	}
 	if err != nil {
@@ -121,8 +129,7 @@ func (s *Service) QueryMobileMulti(c *gin.Context) {
 		var mobile string
 		mobile, err := s.rds.HGet(ConflictMd5, mobileMd5).Result()
 		if err == redis.Nil {
-			key := fmt.Sprintf("%d", s.crc.Hash64S(mobileMd5) % RedisKeyBudgets)
-			field := fmt.Sprintf("%d", hashx.DJBHash(mobileMd5))
+			key, field := getMobileHash(s.crc, mobileMd5)
 			mobile, err = s.rds.HGet(key, field).Result()
 		}
 		if err == nil {
