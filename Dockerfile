@@ -13,8 +13,8 @@ ENV PATH=$PATH:/usr/local/go/bin
 ENV GOROOT=/usr/local/go
 
 # 添加代码和编译
-COPY . /
-RUN cd go-http && make build
+RUN git clone https://github.com/realwrtoff/go-http.git \
+    && cd go-http && git pull && make build
 
 FROM centos:centos7
 COPY --from=builder /go-http/build/ /
